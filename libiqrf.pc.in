@@ -1,0 +1,12 @@
+prefix=/usr/
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: Libiqrf
+Description: IQRF library.
+Version: 1.0.1
+URL: @PACKAGE_URL@
+Libs: -L${libdir} -liqrf
+Cflags: -I${includedir}/iqrf
+
