@@ -115,7 +115,7 @@ int get_spi_status(void)
 }
 
 /* get data from spi */
-int get_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write)
+int read_write_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write)
 {
     	unsigned char buff[BUF_LEN], PTYPE = 0;
     	int i, len, crc_rx, ret_val = 0;
@@ -149,14 +149,26 @@ int get_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write)
     	/* count crc for retrieved data */
 	crc_rx = check_crc_rx(&buff[2], PTYPE, data_len);
 
-    	if (crc_rx) {
-        	memcpy(data_buff, &buff[2], data_len);
-        	DBG("Received data len:0x%x\n", len);
-        	for (i = 2; i < data_len; i++)
-            		DBG("%c", buff[i]);
-        	DBG("\n");
+	if (crc_rx) {
+		if (read_write) {
+			/* whole buff without crc */
+			memcpy(data_buff, &buff[0], len - 1);
+			DBG("Received data len:0x%x\n", len);
+        		for (i = 0; i < len; i++)
+            			DBG("%x ", buff[i]);
+        		DBG("\n");
 
-        	ret_val = data_len;
+        		ret_val = len;
+
+		} else {
+        		memcpy(data_buff, &buff[2], data_len);
+        		DBG("Received data len:0x%x\n", len);
+        		for (i = 2; i < data_len; i++)
+            			DBG("%c", buff[i]);
+        		DBG("\n");
+
+        		ret_val = data_len;
+	}
     	} else {
         	/* this could occur in case of module info */
         	memcpy(data_buff, &buff[2], 4);

@@ -39,14 +39,38 @@ enum spi_status {
 	SPI_UNKNOWN	       = 0x01,	 // undefined status
 };
 
+/* return status of SPI communication */
 enum spi_status get_spi_status(void);
-int get_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write);
+
+/* 
+ * this function have 2 functionalitiesi
+ * for data reading you provide a buffer 
+ * data_buff where data will be written
+ *
+ * for writing you put your data in data_buff
+ * and then response will be also placed
+ * in data_buff (strange but TRUE :))
+ *
+ */
+int read_write_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write);
+
+/* device initialization */
+int init_device();
+
+/* device release */
+void release_device(void);
+
+/* reset device (also usb reset)*/
+void reset_device();
+
+/* 
+ * following functions are highly used only for iqrf ide
+ * and makes no sense to use them in applications
+ * thats the reason why aren't documented well ;)
+ */
 int write_read_data(unsigned char *data_buff, int tx_len, int rx_len, int check_crc);
 int write_data(unsigned char *data_buff, int tx_len);
-int init_device();
-void release_device(void);
-void reset_device();
-int count_crc(unsigned char *buff, int len);
+int count_tx_crc(unsigned char *buff, int len);
 
 #ifdef __cplusplus
 }
