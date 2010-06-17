@@ -43,9 +43,10 @@ enum spi_status {
 enum spi_status get_spi_status(void);
 
 /* 
- * this function have 2 functionalitiesi
+ * this function have 2 functionalities
  * for data reading you provide a buffer 
  * data_buff where data will be written
+ * after reading
  *
  * for writing you put your data in data_buff
  * and then response will be also placed
