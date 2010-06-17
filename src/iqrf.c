@@ -103,7 +103,7 @@ int get_spi_status(void)
 	 	break;
     	default:
          	if (buff[1] >= 0x40 && buff[1] <= 0x63) 
-              		status = SPI_DATA_READY;
+              		status = buff[1];
          	else 
 		 	status = SPI_UNKNOWN;
          
@@ -140,14 +140,14 @@ int get_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write)
     	set_tx_len(data_len + 4);
     	set_rx_len(data_len + 4);
     	for (i = 0; i < data_len + 4; i++)
-        	DBG("data transfered[%d]:0x%X", i, buff[i]);
+        	DBG("data transfered[%d]:0x%X\n", i, buff[i]);
     	DBG("\n");
     
 	write_tx_buff(buff, data_len + 4);
     	send_receive_packet();
     	len = read_rx_buff(buff);
     	/* count crc for retrieved data */
-    	crc_rx = check_crc_rx(&buff[2], PTYPE, data_len);
+	crc_rx = check_crc_rx(&buff[2], PTYPE, data_len);
 
     	if (crc_rx) {
         	memcpy(data_buff, &buff[2], data_len);
