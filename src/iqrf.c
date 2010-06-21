@@ -41,7 +41,7 @@ printf(fmt , ##args);
 static sem_t sem;
    
 /* device initialization */
-int init_device()
+int iqrf_init_device()
 {
     	int result = -ENODEV;
 
@@ -59,7 +59,7 @@ int init_device()
 }
 
 /* device release */
-void release_device(void)
+void iqrf_release_device(void)
 {
 	release_usb();
 }
@@ -67,7 +67,7 @@ void release_device(void)
 
 
 /* get spi_status of module spi */
-int get_spi_status(void)
+int iqrf_get_spi_status(void)
 {
     	unsigned char buff[BUF_LEN];
     	int len = 0;
@@ -115,7 +115,7 @@ int get_spi_status(void)
 }
 
 /* get data from spi */
-int read_write_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write)
+int iqrf_read_write_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write)
 {
     	unsigned char buff[BUF_LEN], PTYPE = 0;
     	int i, len, crc_rx, ret_val = 0;
@@ -179,7 +179,7 @@ int read_write_spi_cmd_data(unsigned char *data_buff, int data_len, int read_wri
 }
 
 /* write and reading data to/from spi */
-int write_read_data(unsigned char *data_buff, int tx_len, int rx_len, int check_crc)
+int iqrf_write_read_data(unsigned char *data_buff, int tx_len, int rx_len, int check_crc)
 {
     	unsigned char buff[64], PTYPE;
     	int len, crc_rx, i;
@@ -209,7 +209,7 @@ int write_read_data(unsigned char *data_buff, int tx_len, int rx_len, int check_
     	return len;
 }
 
-int write_data(unsigned char *data_buff, int tx_len)
+int iqrf_write_data(unsigned char *data_buff, int tx_len)
 {
     	unsigned char buff[64];
     	int i, ret_val = 0;
@@ -229,12 +229,12 @@ int write_data(unsigned char *data_buff, int tx_len)
     	return ret_val;
 }
 
-void reset_device()
+void iqrf_reset_device()
 {
     	reset_usb();
 }
 
-int count_crc(unsigned char *buff, int len)
+int iqrf_count_tx_crc(unsigned char *buff, int len)
 {
     	return count_crc_tx(buff, len);
 }

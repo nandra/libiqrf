@@ -24,6 +24,11 @@
 extern "C" {
 #endif
 
+/* maximum length for SPI data */
+#define SPI_DATA_LENGTH (35)
+/* command definition for CK */
+#define CMD_FOR_CK 0x01
+
 /* possible spi statuses */
 enum spi_status {
 	NO_MODULE_ON_USB       = 0xFF,    // SPI not working (HW error)
@@ -40,7 +45,7 @@ enum spi_status {
 };
 
 /* return status of SPI communication */
-enum spi_status get_spi_status(void);
+enum spi_status iqrf_get_spi_status(void);
 
 /* 
  * this function have 2 functionalities
@@ -53,25 +58,25 @@ enum spi_status get_spi_status(void);
  * in data_buff (strange but TRUE :))
  *
  */
-int read_write_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write);
+int iqrf_read_write_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write);
 
 /* device initialization */
-int init_device();
+int iqrf_init_device();
 
 /* device release */
-void release_device(void);
+void iqrf_release_device(void);
 
 /* reset device (also usb reset)*/
-void reset_device();
+void iqrf_reset_device();
 
 /* 
  * following functions are highly used only for iqrf ide
  * and makes no sense to use them in applications
  * thats the reason why aren't documented well ;)
  */
-int write_read_data(unsigned char *data_buff, int tx_len, int rx_len, int check_crc);
-int write_data(unsigned char *data_buff, int tx_len);
-int count_tx_crc(unsigned char *buff, int len);
+int iqrf_write_read_data(unsigned char *data_buff, int tx_len, int rx_len, int check_crc);
+int iqrf_write_data(unsigned char *data_buff, int tx_len);
+int iqrf_count_tx_crc(unsigned char *buff, int len);
 
 #ifdef __cplusplus
 }
