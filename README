@@ -1,1 +1,23 @@
-Core classes for using iqrf stack for different applications.
+libiqrf
+---------
+
+provides C functions to access a iqrf devices (www.iqrf.org)
+
+see iqrf.h for the functions available from the
+library.
+
+For more information on the protocol, see the source code
+or www.iqrf.org (SPI).
+
+Library compilation:
+1. ./configure
+2. make
+3. sudo make install
+
+Default location is in /usr/local/lib.
+
+To use this library in your custom applications add:
+-L/usr/local/lib -liqrf
+
+
+	-- Marek Belisko <marek.belisko@gmail.com>
