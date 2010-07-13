@@ -61,13 +61,13 @@ enum spi_status iqrf_get_spi_status(void);
 int iqrf_read_write_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write);
 
 /* device initialization */
-int iqrf_init_device();
+int iqrf_init_device(void);
 
 /* device release */
 void iqrf_release_device(void);
 
 /* reset device (also usb reset)*/
-void iqrf_reset_device();
+void iqrf_reset_device(void);
 
 /* 
  * following functions are highly used only for iqrf ide
