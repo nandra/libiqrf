@@ -1,3 +1,67 @@
+commit 4243e2e60a8ba693c6b59cd89338d88ce81f9264
+Author: Marek Belisko <marek.belisko@gmail.com>
+Date:   Tue Jul 13 13:51:58 2010 +0200
+
+    Fix empty argumets definition.
+    
+    Signed-off-by: Marek Belisko <marek.belisko@gmail.com>
+
+commit 41cff9408f88680ecf90bd07da55736fb4fefefd
+Author: Marek Belisko <marek.belisko@gmail.com>
+Date:   Mon Jun 21 13:22:28 2010 +0200
+
+    README updated.
+    
+    Signed-off-by: Marek Belisko <marek.belisko@gmail.com>
+
+commit cb32f5e24114abe585753992cea13869ac3b918d
+Author: Marek Belisko <marek.belisko@gmail.com>
+Date:   Mon Jun 21 13:22:06 2010 +0200
+
+    Add iqrf prefix to all exported functions.
+    
+    Signed-off-by: Marek Belisko <marek.belisko@gmail.com>
+
+commit 13dc92c033910eac04337a936f81b35abbc38e60
+Author: Marek Belisko <marek.belisko@gmail.com>
+Date:   Thu Jun 17 17:06:45 2010 +0200
+
+    m4 directory added.
+    
+    Signed-off-by: Marek Belisko <marek.belisko@gmail.com>
+
+commit baeb569e52c83a23f25bdbf130d26cf490ba87e5
+Author: Marek Belisko <marek.belisko@gmail.com>
+Date:   Thu Jun 17 16:45:14 2010 +0200
+
+    Fixed typo.
+    
+    Signed-off-by: Marek Belisko <marek.belisko@gmail.com>
+
+commit 7838289eb300363ccca102ff45ed2ee6fe436c04
+Author: Marek Belisko <marek.belisko@gmail.com>
+Date:   Thu Jun 17 16:32:09 2010 +0200
+
+    Fixed problem with SPI cmd for reading and writing.
+    
+    Signed-off-by: Marek Belisko <marek.belisko@gmail.com>
+
+commit 1619e6d5b9a25527e43bad6660b6c791fdc29572
+Author: Marek Belisko <marek.belisko@gmail.com>
+Date:   Thu Jun 17 11:26:17 2010 +0200
+
+    Fixed problem with data reading.
+    
+    Signed-off-by: Marek Belisko <marek.belisko@gmail.com>
+
+commit 5a208901d3996c18612cba40c0fe63042fdb3a8d
+Author: Marek Belisko <marek.belisko@gmail.com>
+Date:   Wed Jun 16 15:57:32 2010 +0200
+
+    First draft working version of library.
+    
+    Signed-off-by: Marek Belisko <marek.belisko@gmail.com>
+
 commit ba224f503c57e0ec0c01658931c5ed7e5268bc64
 Author: Marek Belisko <marek.belisko@gmail.com>
 Date:   Tue Jun 15 16:24:50 2010 +0200
