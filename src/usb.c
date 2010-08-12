@@ -26,7 +26,7 @@
 
 #ifdef DEBUG_USB
 #define DBG(fmt, args...) \
-printf("lusb:" fmt, ##args);
+printf("libusb:" fmt, ##args);
 #else
 #define DBG(fmt, args...) {}
 #endif
@@ -39,10 +39,10 @@ static struct iqrf_usb devices[] = {
     	{0, 0},
 };
 
-static struct usb_bus *usb_bus;
-static struct usb_dev_handle *dev_handle;
-static struct usb_device *dev;
-static int found;
+static struct libusb_context *usb_bus;
+static struct libusb_device_handle *dev_handle;
+static struct libusb_device *dev;
+static int found = 0;
 static unsigned char tx_buff[BUF_LEN], rx_buff[BUF_LEN];
 static unsigned char tx_len, rx_len;
 
@@ -53,41 +53,60 @@ int usb_dev_found(void)
 }
 
 /* usb initialization */
-void init_usb()
+int init_usb()
 {
     	found = 0;
+	int ret_val = -1;
     	memset(rx_buff, 0, sizeof(rx_buff));
     	memset(tx_buff, 0, sizeof(tx_buff));
-    	dev = NULL;
-    	dev_handle = NULL;
+	struct libusb_device **list;
 
-    	unsigned int i = 0;
-    	usb_bus = usb_get_busses();
-    	struct usb_device *device;
-   
-       	usb_init();
-    	usb_find_busses();
-    	usb_find_devices();
-    	for (usb_bus = usb_busses; usb_bus; usb_bus = usb_bus->next) {
-        	for (device = usb_bus->devices; device; device = device->next) {
-                        for (i = 0; i < sizeof(devices); i++) {
-                        	if ((device->descriptor.idVendor == devices[i].vendor_id) &&
-                               		(device->descriptor.idProduct == devices[i].product_id)) {
+    	ssize_t i = 0, cnt;
+    	struct libusb_device *device = NULL;
 
-                                	if (device != NULL) {
-                                    		found = 1;
-                                    		dev = device;
-                                    		DBG("USB device found:%x:%x\n", devices[i].vendor_id, devices[i].product_id);
-                                    		/*TODO: for multi-instance handling remove break*/
-                                    		break;
-                                	}
+	struct libusb_device_descriptor desc;	 
+	
+	if ((ret_val = libusb_init(&usb_bus))) {
+		perror("usb_init");
+		
+		goto end;
+	}
+	cnt = libusb_get_device_list(NULL, &list );
+  	
+	if (cnt < 0) {
+		perror("libusb_get_device_list:");
+		ret_val = cnt;
+		goto end;
+	}
+	
+	for (i = 0; i < cnt; i++) {
+		device = list[i];
+		if ((ret_val = libusb_get_device_descriptor(device, &desc))) {
+			perror("libusb_get_device_descriptor:");
+			goto end;
+		}
+		
+		int j;
+   		for (j = 0; j < sizeof(devices); j++) {	
+		
+			if ((desc.idVendor == devices[j].vendor_id) &&
+                		(desc.idProduct == devices[j].product_id)) {
 
-                            	}
-                        }
-
-                }
-        }
-
+                        	found = 1;
+				ret_val = 0;
+                        	dev = device;
+                        	DBG("USB device found:%x:%x\n", devices[j].vendor_id, devices[j].product_id);
+                                /*TODO: for multi-instance handling remove break*/
+                        	break;
+                 	}
+		}
+	}	
+end:
+	if (found) {
+		open_usb();
+	}
+	libusb_free_device_list(list, 1);
+	return;	
 }
 
 /* opening usb device */
@@ -96,12 +115,11 @@ int open_usb()
     	int ret_val = 0;
 
     	if (dev != NULL) {
-        	dev_handle = usb_open(dev);
-        	if (dev_handle != NULL) {
-            	/* claim interface must be done before every
-             	 * write or read to interface
-             	 */
-            		ret_val = usb_claim_interface(dev_handle, 0);
+        	if (!libusb_open(dev, &dev_handle)) {
+            		/* claim interface must be done before every
+             	 	* write or read to interface
+             	 	*/
+            		ret_val = libusb_claim_interface(dev_handle, 0);
             		if (ret_val < 0) {
                 		perror("usb_claim_interface");
                 		ret_val = 0;
@@ -118,9 +136,10 @@ int open_usb()
 int retrieve_packet()
 {
     	int ret_val = 0;
+	int transferred;
 
-    	ret_val = usb_interrupt_read(dev_handle, IN_EP_NR,
-                                     rx_buff, rx_len,
+    	ret_val = libusb_interrupt_transfer(dev_handle, IN_EP_NR,
+                                     rx_buff, rx_len,&transferred,
                                      1000);
    	if (ret_val > 0) {
         	rx_len = ret_val;
@@ -136,9 +155,9 @@ int retrieve_packet()
 int send_packet()
 {
    	 int ret_val = 0;
-
-   	 ret_val = usb_interrupt_write(dev_handle, OUT_EP_NR,
-                                      tx_buff, tx_len,
+	 int transferred;
+   	 ret_val = libusb_interrupt_transfer(dev_handle, OUT_EP_NR,
+                                      tx_buff, tx_len, &transferred,
                                       1000);
    	 if (ret_val < 0) {
        		 printf("%s\n", __FUNCTION__);
@@ -188,14 +207,15 @@ void write_tx_buff(unsigned char *buff, int len)
 
 void reset_usb()
 {
-   	 usb_reset(dev_handle);
+   	 libusb_reset_device(dev_handle);
 }
 
 void release_usb()
 {
 	if (dev_handle != NULL) {
-		usb_release_interface(dev_handle, 0);
-		usb_close(dev_handle);
+		libusb_release_interface(dev_handle, 0);
+		libusb_close(dev_handle);
+		libusb_exit(usb_bus);
     	}
 	
 	memset(rx_buff, 0, sizeof(rx_buff));

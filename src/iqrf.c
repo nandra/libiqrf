@@ -48,13 +48,11 @@ int iqrf_init_device()
     	if (sem_init(&sem, 0 ,1) == -1)
         	perror("sem_init");
 
-    	init_usb();
+    	result = init_usb();
 
-    	if (usb_dev_found()) {
-        	result = open_usb();
-        	if (!result)
-            		printf("USB error, check device connection\n");
-    	}
+      	if (result)
+        	printf("USB error, check device connection\n");
+    	
     	return result;
 }
 
