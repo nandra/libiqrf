@@ -43,6 +43,12 @@ static struct usb_bus *usb_bus;
 static struct usb_dev_handle *dev_handle;
 static struct usb_device *dev;
 static int found;
+
+#define IRQ_ENDPOINT (3)
+#define BULK_ENDPOINT (2)
+
+static int usb_transfer_type;
+
 static unsigned char tx_buff[BUF_LEN], rx_buff[BUF_LEN];
 static unsigned char tx_len, rx_len;
 
@@ -77,6 +83,19 @@ void init_usb()
                                 	if (device != NULL) {
                                     		found = 1;
                                     		dev = device;
+						/* newer devices use bulk transfer instead of interrupt */
+						if ((device->config->interface->altsetting->endpoint->bmAttributes & IRQ_ENDPOINT) == IRQ_ENDPOINT) {
+							usb_transfer_type = IRQ_ENDPOINT;
+						} else if ((device->config->interface->altsetting->endpoint->bmAttributes & IRQ_ENDPOINT) == BULK_ENDPOINT) {
+							usb_transfer_type = BULK_ENDPOINT;
+						} else {
+							fprintf(stderr, "Unknown endpoint transfer type!!!\n");
+							found = 0;
+							break;
+						}
+
+
+						DBG("attr:%x\n",device->config->interface->altsetting->endpoint->bmAttributes);
                                     		DBG("USB device found:%x:%x\n", devices[i].vendor_id, devices[i].product_id);
                                     		/*TODO: for multi-instance handling remove break*/
                                     		break;
@@ -119,10 +138,15 @@ int retrieve_packet()
 {
     	int ret_val = 0;
 
-    	ret_val = usb_interrupt_read(dev_handle, IN_EP_NR,
+    	if (usb_transfer_type == BULK_ENDPOINT) 
+		ret_val = usb_bulk_read(dev_handle, IN_EP_NR,
                                      rx_buff, rx_len,
                                      1000);
-   	if (ret_val > 0) {
+	else
+		ret_val = usb_bulk_read(dev_handle, IN_EP_NR,
+                                     rx_buff, rx_len,
+                                     1000);
+if (ret_val > 0) {
         	rx_len = ret_val;
    	} else {
        		rx_len = 0;
@@ -137,10 +161,15 @@ int send_packet()
 {
    	 int ret_val = 0;
 
-   	 ret_val = usb_interrupt_write(dev_handle, OUT_EP_NR,
+   	 if (usb_transfer_type == BULK_ENDPOINT)
+	 	ret_val = usb_bulk_write(dev_handle, OUT_EP_NR,
                                       tx_buff, tx_len,
                                       1000);
-   	 if (ret_val < 0) {
+	 else
+	 	ret_val = usb_bulk_write(dev_handle, OUT_EP_NR,
+                                      tx_buff, tx_len,
+                                      1000);
+if (ret_val < 0) {
        		 printf("%s\n", __FUNCTION__);
        		 perror("usb_irq_write");
    	 }
@@ -202,4 +231,5 @@ void release_usb()
     	memset(tx_buff, 0, sizeof(tx_buff));
     	dev = NULL;
     	dev_handle = NULL;
+	usb_transfer_type = 0;
 }
