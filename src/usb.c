@@ -103,33 +103,27 @@ int init_usb()
 	}	
 end:
 	if (found) {
-		open_usb();
+		ret_val = libusb_open(dev, &dev_handle);
+		if (ret_val) {
+			perror("libusb_open");
+			goto err;
+		}
+
+		ret_val = libusb_claim_interface(dev_handle, 0);
+		if (ret_val) {
+			perror("libusb_claim_interface");
+			goto err_claim;
+		}
+		ret_val = 0;
 	}
+
+	return ret_val;
+err_claim:
+	libusb_close(&dev_handle);
+err:
 	libusb_free_device_list(list, 1);
-	return;	
-}
 
-/* opening usb device */
-int open_usb()
-{
-    	int ret_val = 0;
-
-    	if (dev != NULL) {
-        	if (!libusb_open(dev, &dev_handle)) {
-            		/* claim interface must be done before every
-             	 	* write or read to interface
-             	 	*/
-            		ret_val = libusb_claim_interface(dev_handle, 0);
-            		if (ret_val < 0) {
-                		perror("usb_claim_interface");
-                		ret_val = 0;
-            		} else {
-                		ret_val = 1;
-           		}
-        	}
-    	}
-
-    	return ret_val;
+	return ret_val;	
 }
 
 /* receive data from endpoint */
