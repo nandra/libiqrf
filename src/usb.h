@@ -21,7 +21,7 @@
 #ifndef USB_H
 #define USB_H
 
-#include <usb.h>
+#include <libusb.h>
 
 /* devices identification */
 #define CKUSB02_VENDOR_ID_OLD 0x04D8
@@ -49,7 +49,7 @@ struct iqrf_usb {
 #define IN_EP_NR (0x81)
 
 int usb_dev_found();
-void init_usb();
+int init_usb();
 int open_usb();
 int send_receive_packet();
 void reset_usb();
