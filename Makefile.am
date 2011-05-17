@@ -12,8 +12,8 @@ include_HEADERS = src/iqrf.h
 
 libiqrf_la_LDFLAGS = -version-info 1:0:0
 
-libiqrf_la_CPPFLAGS = $(USB_CFLAGS)
-libiqrf_la_LIBADD = $(USB_LIBS)
+libiqrf_la_CPPFLAGS = $(LIBUSB_CFLAGS)
+libiqrf_la_LIBADD = $(LIBUSB_LIBS)
 
 .PHONY: ChangeLog
 ChangeLog:
