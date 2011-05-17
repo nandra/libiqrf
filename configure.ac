@@ -26,7 +26,7 @@ AC_ARG_WITH([libusb-include-path],
   [AS_HELP_STRING([--with-libusb-include-path],
     [location of the libusb headers, defaults to /usr/include/])],
   [USB_CFLAGS="-I$withval"],
-  [USB_CFLAGS='-I/usr/include'])
+  [USB_CFLAGS='-I/usr/include/libusb-1.0'])
 AC_SUBST([USB_CFLAGS])
 
 AC_ARG_WITH([libusb-lib-path],

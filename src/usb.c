@@ -119,7 +119,7 @@ end:
 
 	return ret_val;
 err_claim:
-	libusb_close(&dev_handle);
+	libusb_close(dev_handle);
 err:
 	libusb_free_device_list(list, 1);
 
@@ -135,11 +135,7 @@ int retrieve_packet()
     	ret_val = libusb_interrupt_transfer(dev_handle, IN_EP_NR,
                                      rx_buff, rx_len,&transferred,
                                      1000);
-	else
-		ret_val = usb_bulk_read(dev_handle, IN_EP_NR,
-                                     rx_buff, rx_len,
-                                     1000);
-if (ret_val > 0) {
+	if (ret_val > 0) {
         	rx_len = ret_val;
    	} else {
        		rx_len = 0;
@@ -220,5 +216,4 @@ void release_usb()
     	memset(tx_buff, 0, sizeof(tx_buff));
     	dev = NULL;
     	dev_handle = NULL;
-	usb_transfer_type = 0;
 }
