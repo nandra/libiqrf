@@ -129,18 +129,16 @@ err:
 /* receive data from endpoint */
 int retrieve_packet()
 {
-    	int ret_val = 0;
+	int ret_val = 0;
 	int transferred;
 
     	ret_val = libusb_interrupt_transfer(dev_handle, IN_EP_NR,
                                      rx_buff, rx_len,&transferred,
                                      USB_TIMEOUT);
-	if (ret_val > 0) {
-        	rx_len = ret_val;
-   	} else {
-       		rx_len = 0;
-        	perror("usb_irq_read");
-    	}
+	if (!ret_val)
+		ret_val = transferred;
+	else
+		perror("usb_irq_read");
 
     	return ret_val;
 }
@@ -148,13 +146,13 @@ int retrieve_packet()
 /* write data to endpoint */
 int send_packet()
 {
-   	 int ret_val = 0;
-	 int transferred;
-   	 ret_val = libusb_interrupt_transfer(dev_handle, OUT_EP_NR,
-                                      tx_buff, tx_len, &transferred,
-                                      USB_TIMEOUT);
+	int ret_val = 0;
+	int transferred;
+	ret_val = libusb_interrupt_transfer(dev_handle, OUT_EP_NR,
+					tx_buff, tx_len, &transferred,
+					USB_TIMEOUT);
+
 	if (ret_val < 0) {
-       		 printf("%s\n", __FUNCTION__);
        		 perror("usb_irq_write");
 	}
 
@@ -164,13 +162,13 @@ int send_packet()
 /* write and read data to/from endpoint */
 int send_receive_packet()
 {
-   	 int ret_val = 0;
+	int ret_val = 0;
 
-   	 ret_val = send_packet();
-   	 if (ret_val)
-       		 ret_val = retrieve_packet();
+	ret_val = send_packet();
+	if (!ret_val)
+		ret_val = retrieve_packet();
 
-   	 return ret_val;
+	return ret_val;
 }
 
 /* set length for transmission */
