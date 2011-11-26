@@ -153,11 +153,12 @@ int send_packet()
    	 ret_val = libusb_interrupt_transfer(dev_handle, OUT_EP_NR,
                                       tx_buff, tx_len, &transferred,
                                       1000);
-if (ret_val < 0) {
+	if (ret_val < 0) {
        		 printf("%s\n", __FUNCTION__);
        		 perror("usb_irq_write");
-   	 }
-   	 return ret_val;
+	}
+
+	return ret_val;
 }
 
 /* write and read data to/from endpoint */
