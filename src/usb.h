@@ -48,6 +48,8 @@ struct iqrf_usb {
 #define OUT_EP_NR (0x01)
 #define IN_EP_NR (0x81)
 
+#define USB_TIMEOUT (1000) // in ms
+
 int usb_dev_found();
 int init_usb();
 int open_usb();

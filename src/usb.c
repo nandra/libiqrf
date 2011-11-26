@@ -134,7 +134,7 @@ int retrieve_packet()
 
     	ret_val = libusb_interrupt_transfer(dev_handle, IN_EP_NR,
                                      rx_buff, rx_len,&transferred,
-                                     1000);
+                                     USB_TIMEOUT);
 	if (ret_val > 0) {
         	rx_len = ret_val;
    	} else {
@@ -152,7 +152,7 @@ int send_packet()
 	 int transferred;
    	 ret_val = libusb_interrupt_transfer(dev_handle, OUT_EP_NR,
                                       tx_buff, tx_len, &transferred,
-                                      1000);
+                                      USB_TIMEOUT);
 	if (ret_val < 0) {
        		 printf("%s\n", __FUNCTION__);
        		 perror("usb_irq_write");
