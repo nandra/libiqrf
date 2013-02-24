@@ -46,7 +46,10 @@ int usb_dev_found(void)
     	return found;
 }
 
-/* usb initialization */
+/**
+ * usb initialization
+ * @return	0 on success, -1 on error
+ **/
 int init_usb()
 {
     	found = 0;
@@ -60,24 +63,26 @@ int init_usb()
 
 	struct libusb_device_descriptor desc;	 
 	
-	if ((ret_val = libusb_init(&usb_bus))) {
+	ret_val = libusb_init(&usb_bus);
+	if (ret_val) {
 		perror("usb_init");
-		
-		goto end;
+		goto err_init;
 	}
+
 	cnt = libusb_get_device_list(NULL, &list );
-  	
-	if (cnt < 0) {
+  	if (cnt < 0) {
 		perror("libusb_get_device_list:");
 		ret_val = cnt;
-		goto end;
+		goto err_list;
 	}
-	
+
 	for (i = 0; i < cnt; i++) {
 		device = list[i];
-		if ((ret_val = libusb_get_device_descriptor(device, &desc))) {
+
+		ret_val = libusb_get_device_descriptor(device, &desc);
+		if (ret_val) {
 			perror("libusb_get_device_descriptor:");
-			goto end;
+			goto err_list;
 		}
 		
 		int j;
@@ -94,30 +99,40 @@ int init_usb()
                         	break;
                  	}
 		}
-	}	
-end:
-	if (found) {
-		ret_val = libusb_open(dev, &dev_handle);
-		if (ret_val) {
-			perror("libusb_open");
-			goto err;
-		}
-
-		ret_val = libusb_claim_interface(dev_handle, 0);
-		if (ret_val) {
-			perror("libusb_claim_interface");
-			goto err_claim;
-		}
-		ret_val = 0;
 	}
 
-	return ret_val;
+	/* found? */
+	if (!found) {
+		DBG("USB device NOT found\n");
+		goto err_not_found;
+	}
+
+	ret_val = libusb_open(dev, &dev_handle);
+	if (ret_val) {
+		perror("libusb_open");
+		goto err_open;
+	}
+
+	ret_val = libusb_claim_interface(dev_handle, 0);
+	if (ret_val) {
+		perror("libusb_claim_interface");
+		goto err_claim;
+	}
+
+	return 0;
+
 err_claim:
 	libusb_close(dev_handle);
-err:
+	dev_handle = NULL;
+err_open:
 	libusb_free_device_list(list, 1);
-
-	return ret_val;	
+	list = NULL;
+err_not_found:
+err_list:
+	libusb_exit(usb_bus);
+	usb_bus = NULL;
+err_init:
+	return -1;
 }
 
 /* receive data from endpoint */
