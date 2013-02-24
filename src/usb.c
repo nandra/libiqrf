@@ -119,6 +119,8 @@ int init_usb()
 		goto err_claim;
 	}
 
+	/* free list, but do not unreference it */
+	libusb_free_device_list(list, 0);
 	return 0;
 
 err_claim:
