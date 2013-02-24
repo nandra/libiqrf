@@ -25,18 +25,14 @@
 #include <errno.h>
 #include "spi.h"
 #include "usb.h"
+
 #include <semaphore.h>
 
 #define CMD_FOR_CK 0x01
 
-//#define DEBUG_IQRF_DEV
-
-#ifdef DEBUG_IQRF_DEV
-#define DBG(fmt, args...) \
-printf(fmt , ##args);
-#else
-#define DBG(fmt, args...) {}
-#endif
+/* debug */
+#define DEBUG_PREPEND "[debug] iqrf: "
+#include "debug.h"
 
 static sem_t sem;
    

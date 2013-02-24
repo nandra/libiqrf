@@ -22,15 +22,9 @@
 #include <string.h>
 #include "usb.h"
 
-//#define DEBUG_USB
 
-#ifdef DEBUG_USB
-#define DBG(fmt, args...) \
-printf("libusb:" fmt, ##args);
-#else
-#define DBG(fmt, args...) {}
-#endif
-
+#define DEBUG_PREPEND "[debug] usb: "
+#include "debug.h"
 
 /* table of supported devices */
 static struct iqrf_usb devices[] = {
@@ -95,7 +89,7 @@ int init_usb()
                         	found = 1;
 				ret_val = 0;
                         	dev = device;
-                        	DBG("USB device found:%x:%x\n", devices[j].vendor_id, devices[j].product_id);
+                        	DBG("USB device found:%04x:%04x\n", devices[j].vendor_id, devices[j].product_id);
                                 /*TODO: for multi-instance handling remove break*/
                         	break;
                  	}
