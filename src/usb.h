@@ -21,6 +21,7 @@
 #ifndef USB_H
 #define USB_H
 
+#include <stdint.h>	// requires C99
 #include <libusb.h>
 
 /* devices identification */
@@ -30,15 +31,26 @@
 #define CKUSB02_VENDOR_ID 0x1DE6
 #define CKUSB02_PRODUCT_ID 0x0001
 
-struct iqrf_usb {
+struct iqrf_usb_id {
     unsigned short vendor_id;
     unsigned short product_id;
+};
+
+struct usb_location {
+	uint8_t bus;
+	uint8_t addr;
 };
 
 
 /* maximum length for rx and tx buffer */
 #define BUF_LEN 64
 
+struct iqrf_usb {
+	struct libusb_context *ctx;
+	struct libusb_device_handle *handle;
+	unsigned char tx_buff[BUF_LEN], rx_buff[BUF_LEN];
+	unsigned char tx_len, rx_len;
+};
 /* 
  *  usb device has only 1 configuration
  * and only 1 interface which consist
@@ -50,17 +62,17 @@ struct iqrf_usb {
 
 #define USB_TIMEOUT (1000) // in ms
 
-int usb_dev_found();
-int init_usb();
-int open_usb();
-int send_receive_packet();
-void reset_usb();
-void set_tx_len(int);
-void set_rx_len(int);
-int read_rx_buff(unsigned char *buff);
-void write_tx_buff(unsigned char *buff, int len);
-int send_packet();
-void release_usb();
+//int usb_dev_found();
+int init_usb(struct iqrf_usb *);
+int open_usb(struct iqrf_usb *);
+int send_receive_packet(struct iqrf_usb *);
+void reset_usb(struct iqrf_usb *);
+void set_tx_len(struct iqrf_usb *, int);
+void set_rx_len(struct iqrf_usb *, int);
+int read_rx_buff(struct iqrf_usb *, unsigned char *buff);
+void write_tx_buff(struct iqrf_usb *, unsigned char *buff, int len);
+int send_packet(struct iqrf_usb *);
+void release_usb(struct iqrf_usb *);
 
 
 #endif // USB_H

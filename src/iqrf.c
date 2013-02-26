@@ -35,27 +35,35 @@
 #include "debug.h"
 
 static sem_t sem;
-   
+
+
+struct {
+//	sem_t sem;
+	struct iqrf_usb usb;
+} self;
+
 /* device initialization */
 int iqrf_init_device()
 {
     	int result = -ENODEV;
 
+	memset(&self, 0, sizeof(self));
     	if (sem_init(&sem, 0 ,1) == -1)
         	perror("sem_init");
 
-    	result = init_usb();
+    	result = init_usb(&self.usb);
 
       	if (result)
         	printf("USB error, check device connection\n");
     	
+
     	return result;
 }
 
 /* device release */
 void iqrf_release_device(void)
 {
-	release_usb();
+	release_usb(&self.usb);
 }
 	
 
@@ -70,17 +78,18 @@ int iqrf_get_spi_status(void)
     	time_t tm;
 #endif /* DEBUG_IQRF_DEV */
     	sem_wait(&sem);
-    	buff[0] = CMD_FOR_CK;
+
+	buff[0] = CMD_FOR_CK;
     	buff[1] = 0;
     	buff[2] = 0;
     	buff[3] = 0;
     	buff[4] = 0;
-    	set_tx_len(5);
-    	set_rx_len(4);
+    	set_tx_len(&self.usb, 5);
+    	set_rx_len(&self.usb, 4);
 
-    	write_tx_buff(buff, 5);
-    	send_receive_packet();
-    	len = read_rx_buff(buff);
+    	write_tx_buff(&self.usb, buff, 5);
+	send_receive_packet(&self.usb);
+    	len = read_rx_buff(&self.usb, buff);
     	sem_post(&sem);
 
     	switch(buff[1]) {
@@ -131,15 +140,15 @@ int iqrf_read_write_spi_cmd_data(unsigned char *data_buff, int data_len, int rea
     	memcpy(&buff[3], data_buff, data_len);
     	buff[data_len + 3] = count_crc_tx(&buff[1], data_len + 3);
 
-    	set_tx_len(data_len + 4);
-    	set_rx_len(data_len + 4);
+    	set_tx_len(&self.usb, data_len + 4);
+    	set_rx_len(&self.usb, data_len + 4);
     	for (i = 0; i < data_len + 4; i++)
         	DBG("data transfered[%d]:0x%X\n", i, buff[i]);
     	DBG("\n");
     
-	write_tx_buff(buff, data_len + 4);
-    	send_receive_packet();
-    	len = read_rx_buff(buff);
+	write_tx_buff(&self.usb, buff, data_len + 4);
+    	send_receive_packet(&self.usb);
+    	len = read_rx_buff(&self.usb, buff);
     	/* count crc for retrieved data */
 	crc_rx = check_crc_rx(&buff[2], PTYPE, data_len);
 
@@ -185,12 +194,12 @@ int iqrf_write_read_data(unsigned char *data_buff, int tx_len, int rx_len, int c
         	DBG("[%d]=0x%X ", i, buff[i]);
     	DBG("\n");
     	PTYPE = buff[2];
-    	set_tx_len(tx_len);
-    	set_rx_len(rx_len);
+    	set_tx_len(&self.usb, tx_len);
+    	set_rx_len(&self.usb, rx_len);
 
-    	write_tx_buff(buff, tx_len);
-    	send_receive_packet();
-    	len = read_rx_buff(buff);
+    	write_tx_buff(&self.usb, buff, tx_len);
+    	send_receive_packet(&self.usb);
+    	len = read_rx_buff(&self.usb, buff);
     	for (i=0; i < len; i++)
         	DBG("rcv[%d]=0x%X ", i, buff[i]);
     	DBG("\n");
@@ -214,18 +223,18 @@ int iqrf_write_data(unsigned char *data_buff, int tx_len)
     	for (i=0; i < tx_len; i++)
         	DBG("[%d]=0x%X ", i, buff[i]);
     	DBG("\n");
-    	set_tx_len(tx_len);
+    	set_tx_len(&self.usb, tx_len);
 
 
-    	write_tx_buff(buff, tx_len);
-    	ret_val = send_packet();
+    	write_tx_buff(&self.usb, buff, tx_len);
+    	ret_val = send_packet(&self.usb);
     	sem_post(&sem);
     	return ret_val;
 }
 
 void iqrf_reset_device()
 {
-    	reset_usb();
+    	reset_usb(&self.usb);
 }
 
 int iqrf_count_tx_crc(unsigned char *buff, int len)
