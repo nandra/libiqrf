@@ -1,29 +1,16 @@
 /*
- * 
- * Copyright (C) 2012 Jan Tusil <jenda.tusil@gmail.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ * Simple debug
  */
 
 
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#include <stdio.h>
+#include <stdlib.h>
 
 /* force debug */
-#define DEBUG_IQRF_DEV
+#define DEBUG_IQRF_DEV 0
 
 
 #ifndef DEBUG_PREPEND
@@ -31,13 +18,19 @@
 #endif
 
 
-#ifdef DEBUG_IQRF_DEV
-	#define DBG(fmt, args...) \
-		printf(DEBUG_PREPEND fmt , ##args);
+#if DEBUG_IQRF_DEV
+	#define FDBG(f, fmt, args...) \
+		fprintf(f, DEBUG_PREPEND fmt , ##args);
 #else
-	#define DBG(fmt, args...) {}
+	#define FDBG(f, fmt, args...) {}
 #endif
 
+#define DBG(fmt, args...) FDBG(stdout, fmt , ##args)
+#define ERR(fmt, args...) do { \
+	FDBG(stderr, "**fatal: " fmt , ##args);\
+	abort();\
+} while(0)
+	
 
 
 #endif // DEBUG_H

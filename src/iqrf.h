@@ -20,14 +20,20 @@
 #ifndef IQRF_DEV_H
 #define IQRF_DEV_H
 
+#include <stdint.h>
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+	
 /* maximum length for SPI data */
 #define SPI_DATA_LENGTH (35)
 /* command definition for CK */
 #define CMD_FOR_CK 0x01
+
+/* Data types */
 
 /* possible spi statuses */
 enum spi_status {
@@ -44,8 +50,69 @@ enum spi_status {
 	SPI_UNKNOWN	       = 0x01,	 // undefined status
 };
 
+typedef struct {
+	uint8_t bus;
+	uint8_t port;
+} usb_addr;
+
+struct iqrf_struct;
+typedef struct iqrf_struct iqrf_t;
+
+/* Functions */
+
 /* return status of SPI communication */
-enum spi_status iqrf_get_spi_status(void);
+enum spi_status iqrf_get_spi_status(iqrf_t *iqrf);
+
+
+/**
+ * Initialize IQRF library.
+ * @return	0 on success
+ */
+int iqrf_init(void);
+
+/**
+ * Deinitialize IQRF library.
+ */
+void iqrf_exit(void);
+
+
+/**
+ * Gets list of connected devices. Each entry describes where the device is connected.
+ * @param list	where to store entries
+ * @param num	how many entries in list
+ * @return	number of stored entries
+ */
+int iqrf_get_device_list(usb_addr list[], int num);
+
+
+int iqrf_get_device_count(void);
+
+
+/**
+ * Opens an IQRF device
+ * @param addr	device to open
+ * @return	opened device or NULL
+ */
+
+iqrf_t *iqrf_device_open(usb_addr *addr);
+
+/**
+ * Closes IQRF device
+ * @param iqrf	device
+ */
+void iqrf_device_close(iqrf_t *iqrf);
+
+
+/**
+ * Easier way how to open a device
+ * @param interactive   list devices and let user select one
+ * @param list          if interactive == false, list devices only
+ * @param which         if (interactive || list) == false, device to connect
+ * @return      if list == true || error => NULL, IQRF device otherwise
+ */
+
+iqrf_t *iqrf_select_device(bool interactive, bool list, int which);
+
 
 /* 
  * this function have 2 functionalities
@@ -58,24 +125,22 @@ enum spi_status iqrf_get_spi_status(void);
  * in data_buff (strange but TRUE :))
  *
  */
-int iqrf_read_write_spi_cmd_data(unsigned char *data_buff, int data_len, int read_write);
 
-/* device initialization */
-int iqrf_init_device(void);
-
-/* device release */
-void iqrf_release_device(void);
+int iqrf_read_write_spi_cmd_data(iqrf_t *iqrf, unsigned char *data_buff, int data_len, int read_write);
 
 /* reset device (also usb reset)*/
-void iqrf_reset_device(void);
+void iqrf_reset_device(iqrf_t *iqrf);
+
+int iqrf_spi_data_ready(iqrf_t *iqrf);
+
 
 /* 
  * following functions are highly used only for iqrf ide
  * and makes no sense to use them in applications
  * thats the reason why aren't documented well ;)
  */
-int iqrf_write_read_data(unsigned char *data_buff, int tx_len, int rx_len, int check_crc);
-int iqrf_write_data(unsigned char *data_buff, int tx_len);
+int iqrf_write_read_data(iqrf_t *iqrf, unsigned char *data_buff, int tx_len, int rx_len, int check_crc);
+int iqrf_write_data(iqrf_t *iqrf, unsigned char *data_buff, int tx_len);
 int iqrf_count_tx_crc(unsigned char *buff, int len);
 
 #ifdef __cplusplus

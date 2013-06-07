@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include "usb.h"
 
 
@@ -27,195 +28,271 @@
 #include "debug.h"
 
 /* table of supported devices */
-static struct iqrf_usb_id devices[] = {
+static usb_id devices[] = {
     	{CKUSB02_VENDOR_ID_OLD, CKUSB02_PRODUCT_ID_OLD},
     	{CKUSB02_VENDOR_ID, CKUSB02_PRODUCT_ID},
     	{0, 0},
 };
+/* context */
+struct libusb_context *usb_ctx = NULL;
 
-#define USB_MAX_DEVICES 8
-struct usb_location used[USB_MAX_DEVICES];
+
+static bool device_supported(struct libusb_device *dev)
+{
+	struct libusb_device_descriptor desc;
+	int rv;
+	int i;
+
+	rv =  libusb_get_device_descriptor(dev, &desc);
+	if (rv)
+		return false;
+	i=0;
+	while (devices[i].vendor_id) {
+		if (devices[i].vendor_id == desc.idVendor
+				&& devices[i].product_id == desc.idProduct)
+			return true;
+		i++;
+	}
+	return false;
+}
+
+int usb_init(void)
+{
+	if (usb_ctx)
+		ERR("usb_init(): again?\n");
+	return libusb_init(&usb_ctx);
+}
+
+void usb_exit(void)
+{
+	libusb_exit(usb_ctx);
+	usb_ctx = NULL;
+}
+
+static void usb_device_get_addr(struct libusb_device *dev, usb_addr *addr)
+{
+	addr->bus = libusb_get_bus_number(dev);
+	addr->port = libusb_get_port_number(dev);
+}
+
+/**
+ * TODO:
+ */
+bool try_open(struct libusb_device *dev)
+{
+	return true;
+}
+
+int usb_get_device_list(usb_addr devices[], int n_devices, bool count_only)
+{
+	int i, j;
+	int cnt;
+	struct libusb_device **list;
+
+	/* clear list? */
+	if (count_only == false)
+		memset(devices, 0, n_devices * sizeof(usb_addr));
+
+	cnt = libusb_get_device_list(usb_ctx, &list);
+	if (cnt < 0)
+		return cnt;
+
+	j = 0;
+	for (i=0; i < cnt && j < n_devices; i++) {
+		if (device_supported(list[i]) && try_open(list[i])) {
+			/* add to list? */
+			if (count_only == false) {
+				usb_device_get_addr(list[i], &devices[j]);
+			}
+			j++;
+		}
+	}
+	libusb_free_device_list(list, 1);
+
+	return j;
+}
+
+device_t *usb_device_open(struct libusb_device *usbdev)
+{
+	device_t *dev;
+	int rv;
+
+	dev = malloc(sizeof(*dev));
+	if (!dev)
+		goto err_malloc;
+
+	memset(dev, 0, sizeof(*dev));
+	rv = libusb_open(usbdev, &(dev->handle));
+	if (rv)
+		goto err_open;
+
+	rv = libusb_claim_interface(dev->handle, 0);
+	if (rv)
+		goto err_claim;
+
+	return dev;
+	/* error handling */
+err_claim:
+	libusb_close(dev->handle);
+err_open:
+	free(dev);
+err_malloc:
+	DBG("usb_device_open() failed\n");
+	return NULL;
+}
+
+void *usb_device_close(device_t *dev)
+{
+	libusb_release_interface(dev->handle, 0);
+	libusb_close(dev->handle);
+	free(dev);
+}
+
+device_t *usb_device_open_by_addr(usb_addr *addr)
+{
+	int i;
+	int cnt;
+	struct libusb_device **list;
+	device_t *device;
+	usb_addr curr;
+
+	cnt = libusb_get_device_list(usb_ctx, &list);
+	if (cnt < 0)
+		return NULL;
+
+	for (i=0; i<cnt; i++) {
+		usb_device_get_addr(list[i], &curr);
+		if (!memcmp(addr, &curr, sizeof(curr)))
+			break;
+	}
+
+	device = NULL;
+	if (i == cnt)
+		goto end;
+
+	if (!device_supported(list[i]))
+		goto end;
+
+	device = usb_device_open(list[i]);
+end:
+	libusb_free_device_list(list, 1);
+	return device;
+}
 
 
 /**
- * usb initialization
- * @return	0 on success, -1 on error
- **/
-int init_usb(struct iqrf_usb *self)
+ * @param direction	0 - incoming data, 1 - outgoing data
+ */
+
+static void debug_print_packet(const unsigned char *data, int len, int direction)
 {
-//    	int found;
-	int ret_val;
-	struct libusb_device **list;
-    	ssize_t i, cnt;
+	int i;
+#if 0
+	DBG("Dumping %s data:\n", direction?"outgoing":"incoming");
+	for (i=0; i < len; i++)
+        	DBG("%s[%d]=0x%X ", direction?"out":"in", i, data[i]);
+    	DBG("\n");
+#endif
 
-	struct libusb_device *found;
-	struct libusb_device_descriptor desc;	 
-
-	memset(self, 0, sizeof(*self));
-
-	ret_val = libusb_init(&self->ctx);
-	if (ret_val) {
-		perror("usb_init");
-		goto err_init;
-	}
-
-	cnt = libusb_get_device_list(self->ctx, &list);
-  	if (cnt < 0) {
-		perror("libusb_get_device_list:");
-		ret_val = cnt;
-		goto err_list;
-	}
-
-	found = NULL;
-	for (i = 0; i < cnt; i++) {
-	    	struct libusb_device *device;
-		device = list[i];
-
-		ret_val = libusb_get_device_descriptor(device, &desc);
-		if (ret_val) {
-			perror("libusb_get_device_descriptor:");
-			goto err_list;
-		}
-
-		DBG("device %2d: %04x:%04x\n", i, desc.idVendor, desc.idProduct);
-		int j;
-   		for (j = 0; j < sizeof(devices); j++) {	
-			if ((desc.idVendor == devices[j].vendor_id) &&
-                		(desc.idProduct == devices[j].product_id)) {
-
-                        	found = device;
-                        	DBG("USB device found:%04x:%04x\n", devices[j].vendor_id, devices[j].product_id);
-                                /*TODO: for multi-instance handling remove break*/
-                        	break;
-                 	}
-		}
-	}
-
-	/* found? */
-	if (!found) {
-		DBG("USB device NOT found\n");
-		goto err_not_found;
-	}
-
-	ret_val = libusb_open(found, &(self->handle));
-	if (ret_val) {
-		perror("libusb_open");
-		goto err_open;
-	}
-
-	ret_val = libusb_claim_interface(self->handle, 0);
-	if (ret_val) {
-		perror("libusb_claim_interface");
-		goto err_claim;
-	}
-
-	/* free list, but do not unreference it */
-	libusb_free_device_list(list, 0);
-	DBG("tady\n");
-	return 0;
-
-err_claim:
-	libusb_close(self->handle);
-	self->handle = NULL;
-err_open:
-	libusb_free_device_list(list, 1);
-	list = NULL;
-err_not_found:
-err_list:
-	libusb_exit(self->ctx);
-	self->ctx = NULL;
-err_init:
-	return -1;
 }
 
 /* receive data from endpoint */
-int retrieve_packet(struct iqrf_usb *self)
+int usb_retrieve_packet(device_t *dev)
 {
 	int ret_val = 0;
 	int transferred;
 
-    	ret_val = libusb_interrupt_transfer(self->handle, IN_EP_NR,
-                                     self->rx_buff, self->rx_len, &transferred,
+    	ret_val = libusb_interrupt_transfer(dev->handle, IN_EP_NR,
+                                     dev->rx_buff, dev->rx_len, &transferred,
                                      USB_TIMEOUT);
 	if (!ret_val)
 		ret_val = transferred;
 	else
 		perror("usb_irq_read");
 
+	debug_print_packet(dev->rx_buff, dev->rx_len, 0);
     	return ret_val;
 }
 
 /* write data to endpoint */
-int send_packet(struct iqrf_usb *self)
+int usb_send_packet(device_t *dev)
 {
 	int ret_val = 0;
 	int transferred;
-	ret_val = libusb_interrupt_transfer(self->handle, OUT_EP_NR,
-					self->tx_buff, self->tx_len, &transferred,
+	ret_val = libusb_interrupt_transfer(dev->handle, OUT_EP_NR,
+					dev->tx_buff, dev->tx_len, &transferred,
 					USB_TIMEOUT);
 
 	if (ret_val < 0) {
        		 perror("usb_irq_write");
 	}
 
+	debug_print_packet(dev->tx_buff, dev->tx_len, 1);
 	return ret_val;
 }
 
 /* write and read data to/from endpoint */
-int send_receive_packet(struct iqrf_usb *self)
+int usb_send_receive_packet(device_t *dev)
 {
 	int ret_val = 0;
 
-	DBG("<send_receive_packet> %p\n", self);
-	ret_val = send_packet(self);
+	ret_val = usb_send_packet(dev);
 	if (!ret_val)
-		ret_val = retrieve_packet(self);
-	DBG("</send_receive_packet>\n");
+		ret_val = usb_retrieve_packet(dev);
 	return ret_val;
 }
 
+
+/**
+ * Only setters & getters
+ */
+
+
 /* set length for transmission */
-void set_tx_len(struct iqrf_usb *self, int len)
+void usb_set_tx_len(device_t *dev, int len)
 {
-   	 self->tx_len = len;
+   	 dev->tx_len = len;
 }
 
 /* get length of received data */
-void set_rx_len(struct iqrf_usb *self, int len)
+void usb_set_rx_len(device_t *dev, int len)
 {
-   	 self->rx_len = len;
+   	 dev->rx_len = len;
 }
 
 /* copy rx buffer */
-int read_rx_buff(struct iqrf_usb *self, unsigned char * buff)
+int usb_read_rx_buff(device_t *dev, unsigned char * buff)
 {
-   	 memcpy(buff, self->rx_buff, self->rx_len);
-   	 return self->rx_len;
+   	 memcpy(buff, dev->rx_buff, dev->rx_len);
+   	 return dev->rx_len;
+}
+
+
+void usb_tx_buff_clear(device_t *dev)
+{
+	memset(dev->tx_buff, 0, sizeof(dev->tx_buff));
+}
+
+void usb_tx_buff_write(device_t *dev, const unsigned char *buff, int len)
+{
+	usb_tx_buff_clear(dev);
+	memcpy(dev->tx_buff, buff, len);
+	/* clean rx buff */
+	memset(dev->rx_buff, 0, sizeof(dev->rx_buff));
 }
 
 /* write to tx buffer */
-void write_tx_buff(struct iqrf_usb *self, unsigned char *buff, int len)
+void usb_write_tx_buff(device_t *dev, const unsigned char *buff, int len)
 {
-   	 memcpy(self->tx_buff, buff, len);
-   	 /* clean rx buff */
-   	 memset(self->rx_buff, 0, sizeof(self->rx_buff));
+	usb_tx_buff_write(dev, buff, len);
 }
 
-void reset_usb(struct iqrf_usb *self)
+
+
+
+
+void usb_reset(device_t *dev)
 {
-   	 libusb_reset_device(self->handle);
+   	 libusb_reset_device(dev->handle);
 }
 
-void release_usb(struct iqrf_usb *self)
-{
-	if (self->handle != NULL) {
-		libusb_release_interface(self->handle, 0);
-		libusb_close(self->handle);
-		libusb_exit(NULL);
-    	}
-	
-	memset(self->rx_buff, 0, sizeof(self->rx_buff));
-    	memset(self->tx_buff, 0, sizeof(self->tx_buff));
-//    	dev = NULL;
-    	self->handle = NULL;
-}
