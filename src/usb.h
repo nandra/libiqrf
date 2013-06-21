@@ -59,7 +59,7 @@ void usb_exit();
 int usb_get_device_list(usb_addr devices[], int n_devices, bool count_only);
 
 device_t *usb_device_open_by_addr(usb_addr *addr);
-void *usb_device_close(device_t *dev);
+void usb_device_close(device_t *dev);
 
 int usb_retrieve_packet(device_t *self);
 int usb_send_packet(device_t *self);
@@ -70,6 +70,7 @@ int usb_read_rx_buff(device_t *self, unsigned char * buff);
 void usb_write_tx_buff(device_t *self, const unsigned char *buff, int len);
 void usb_reset(device_t *self);
 
+void usb_tx_buff_write(device_t *dev, const unsigned char *buff, int len);
 
 /* 
  *  usb device has only 1 configuration

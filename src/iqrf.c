@@ -15,6 +15,8 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ *
+ * TODO: Use crc checks
  */
 
 
@@ -43,9 +45,21 @@ int iqrf_init(void)
 {
 	return usb_init();
 }
+
 void iqrf_exit(void)
 {
 	usb_exit();
+}
+
+void iqrf_lock(iqrf_t *iqrf)
+{
+	if (sem_wait(&iqrf->sem))
+		ERR_LOCK();
+}
+
+void iqrf_unlock(iqrf_t *iqrf)
+{
+	sem_post(&iqrf->sem);
 }
 
 int iqrf_get_device_list(usb_addr list[], int n_devices)
@@ -95,8 +109,7 @@ err_mem:
 void iqrf_device_close(iqrf_t *iqrf)
 {
 	/* get semaphore */
-	if (sem_wait(&iqrf->sem))
-		ERR_LOCK();
+	iqrf_lock(iqrf);
 
 	usb_device_close(iqrf->dev);
 	iqrf->dev = NULL;
@@ -110,6 +123,49 @@ void iqrf_device_close(iqrf_t *iqrf)
 }
 
 
+int iqrf_raw_write_unlocked(iqrf_t *iqrf, const unsigned char *buff, int tx_len)
+{
+	int rv;
+
+    	usb_set_tx_len(iqrf->dev, tx_len);
+    	usb_write_tx_buff(iqrf->dev, buff, tx_len);
+    	rv = usb_send_packet(iqrf->dev);
+
+	return rv;
+}
+
+int iqrf_raw_write(iqrf_t *iqrf, const unsigned char *data_buff, int tx_len)
+{
+	int rv;
+	iqrf_lock(iqrf);
+	rv = iqrf_raw_write_unlocked(iqrf, data_buff, tx_len);
+   	iqrf_unlock(iqrf);
+    	return rv;
+}
+
+
+int iqrf_raw_read_unlocked(iqrf_t *iqrf, unsigned char *buff, int rx_len)
+{
+	int rv;
+	usb_set_rx_len(iqrf->dev, rx_len);
+	rv = usb_retrieve_packet(iqrf->dev);
+	if (rv < 0) {
+		perror("retrieve");
+		return -1;
+	}
+	/* it returns number of bytes copied */
+	rv = usb_read_rx_buff(iqrf->dev, buff);
+	return rv;
+}
+
+int iqrf_raw_read(iqrf_t *iqrf, unsigned char *buff, int rx_len)
+{
+	int rv;
+	iqrf_lock(iqrf);
+	rv = iqrf_raw_read_unlocked(iqrf, buff, rx_len);
+	iqrf_unlock(iqrf);
+	return rv;
+}
 
 #define SPI_MAX_LEN	41	// for OS 3.0
 //#define SPI_MAX_LEN	64	// for OS 3.01D
@@ -120,14 +176,9 @@ int iqrf_get_spi_status(iqrf_t *iqrf)
     	unsigned char buff[BUF_LEN];
 //    	int len = 0;
 	enum spi_status status;
-#ifdef DEBUG_IQRF_DEV
-    	time_t tm;
-#endif /* DEBUG_IQRF_DEV */
-//#if 0
-	/* get semaphore */
-	if (sem_wait(&iqrf->sem))
-		ERR_LOCK();
-//#endif
+
+	iqrf_lock(iqrf);
+
 	buff[0] = CMD_FOR_CK;
     	buff[1] = 0;
     	buff[2] = 0;
@@ -136,15 +187,14 @@ int iqrf_get_spi_status(iqrf_t *iqrf)
     	usb_set_tx_len(iqrf->dev, 5);
     	usb_set_rx_len(iqrf->dev, 4);
 
-//    	usb_write_tx_buff(iqrf->dev, buff, 5);
+	/* TODO: one write, one read */
 	usb_tx_buff_write(iqrf->dev, buff, 5);
 	usb_send_receive_packet(iqrf->dev);
 	usb_read_rx_buff(iqrf->dev, buff);
-//    	len = usb_read_rx_buff(iqrf->dev, buff);
-//#if 0
-	sem_post(&iqrf->sem);
-//#endif
-    	switch(buff[1]) {
+
+	iqrf_unlock(iqrf);
+
+	switch(buff[1]) {
     	case SPI_DISABLED:
     	case SPI_USER_STOP:
     	case SPI_CRCM_OK:
@@ -157,7 +207,6 @@ int iqrf_get_spi_status(iqrf_t *iqrf)
     		status = buff[1];
 	 	break;
     	default:
-//         	if (buff[1] >= 0x40 && buff[1] <= 0x6i3)
          	if (buff[1] >= 0x40 && buff[1] <= 0x40 + SPI_MAX_LEN)
               		status = buff[1];
          	else {
@@ -193,7 +242,132 @@ int iqrf_spi_data_ready(iqrf_t *iqrf)
 	return rv - 0x40;
 }
 
-/* get data from spi */
+#define PERFORM_F_WRITE	0x01
+#define PERFORM_F_READ	0x02
+#define PERFORM_F_CRC	0x04
+#define PERFORM_F_LOCK	0x08
+
+
+/**
+ * Performs I/O operation on IQRF module
+ * @param iqrf	module
+ * @param din	buffer where to store input data
+ * @param dout	data to send
+ * @param len	how many bytes to read or write
+ * @int flags	what to do
+ *
+ * @return	-1 on error, number of bytes sent/recved otherwise
+ */
+
+
+int iqrf_module_perform(iqrf_t *iqrf, unsigned char *din, const unsigned char *dout, int len, int flags)
+{
+	unsigned char buff[BUF_LEN];
+	unsigned char ptype;
+	unsigned char crc_out;
+
+	int rv;
+	int bytes;
+
+	if (len > SPI_MAX_LEN || len < 0)
+		return -1;
+	if ((flags & (PERFORM_F_READ | PERFORM_F_WRITE)) == 0)
+		return -1;
+
+
+	/* write? */
+	ptype = len;
+	if (flags & PERFORM_F_WRITE)
+		ptype |= 0x80;
+
+	memset(buff, 0, sizeof(buff));
+	buff[0] = CMD_FOR_CK;	// for programmer
+	buff[1] = SPI_CMD_RW;	// for device - data read/write
+	buff[2] = ptype;
+	if ((flags & PERFORM_F_WRITE) && dout != NULL) {
+		memcpy(buff+3, dout, len);
+	}
+	 crc_out = count_crc_tx(buff+1, len+3);
+	 buff[len+3] = crc_out;
+	
+
+	/* lock */
+	if (flags & PERFORM_F_LOCK)
+		iqrf_lock(iqrf);
+
+	rv = iqrf_raw_write_unlocked(iqrf, buff, len + 4);
+	/* some error? */
+	if (rv < 0)
+		goto error;
+
+	/* ok, maybe it is possible that we have written only 'rv' bytes
+	 * and module's answer will have the same lenght */
+	bytes = rv;
+
+	rv = iqrf_raw_read_unlocked(iqrf, buff, bytes);
+	if (rv < 0)
+		goto error;
+
+	/* Uch, this is strange. */
+	if (rv != bytes)
+		goto error;
+
+	/* BTW we can get status here */
+//	status = buff[0];
+
+	/* check CRC */
+	if (flags & PERFORM_F_CRC) {
+		if (check_crc_rx(buff + 2, ptype, bytes) == 0)
+			goto error;
+
+	}
+
+	if (flags & PERFORM_F_LOCK)
+		iqrf_unlock(iqrf);
+
+	/* read it ? */
+	if ((flags & PERFORM_F_READ) && din != NULL) {
+		memcpy(din, buff + 2, bytes);
+	}
+
+	return bytes;
+
+error:
+	if (flags & PERFORM_F_LOCK)
+		iqrf_unlock(iqrf);
+	return -1;
+}
+
+
+int iqrf_module_write_unlocked(iqrf_t *iqrf, const unsigned char *data, int len)
+{
+	int f;
+	f = PERFORM_F_WRITE;
+	return iqrf_module_perform(iqrf, NULL, data, len, f);
+}
+
+int iqrf_module_write(iqrf_t *iqrf, const unsigned char *data, int len)
+{
+	int f;
+	f = PERFORM_F_WRITE | PERFORM_F_LOCK;
+	return iqrf_module_perform(iqrf, NULL, data, len, f);
+}
+
+int iqrf_module_read_unlocked(iqrf_t *iqrf, unsigned char *data, int len)
+{
+	int f;
+	f = PERFORM_F_READ;
+	return iqrf_module_perform(iqrf, data, NULL, len, f);
+}
+
+int iqrf_module_read(iqrf_t *iqrf, unsigned char *data, int len)
+{
+	int f;
+	f = PERFORM_F_READ | PERFORM_F_LOCK;
+	return iqrf_module_perform(iqrf, data, NULL, len, f);
+}
+
+#if 0
 /**
  * Sends user data to IQRF module
  */
@@ -202,10 +376,7 @@ int iqrf_read_write_spi_cmd_data(iqrf_t *iqrf, unsigned char *data_buff, int dat
 	unsigned char buff[BUF_LEN], PTYPE = 0;
     	int i, len, crc_rx, ret_val = 0;
 
-	/* get semaphore */
-	if (sem_wait(&iqrf->sem))
-		ERR_LOCK();
-
+	iqrf_lock(iqrf);
     	/* avoid get longer data line 35 bytes */
     	data_len &= 0x3F;
 
@@ -238,7 +409,9 @@ int iqrf_read_write_spi_cmd_data(iqrf_t *iqrf, unsigned char *data_buff, int dat
 
 	/* send it */
 	usb_write_tx_buff(iqrf->dev, buff, data_len + 4);
-    	usb_send_receive_packet(iqrf->dev);
+
+	/* TODO: use one read and one write */
+	usb_send_receive_packet(iqrf->dev);
 
 	/* retrieve data */
 	len = usb_read_rx_buff(iqrf->dev, buff);
@@ -255,7 +428,7 @@ int iqrf_read_write_spi_cmd_data(iqrf_t *iqrf, unsigned char *data_buff, int dat
 			// TEST: remove memcpy()
         		memcpy(data_buff, &buff[2], data_len);
         		ret_val = data_len;
-	}
+		}
     	} else {
         	/* this could occur in case of module info */
         	memcpy(data_buff, &buff[2], 4);
@@ -266,82 +439,52 @@ int iqrf_read_write_spi_cmd_data(iqrf_t *iqrf, unsigned char *data_buff, int dat
     	return ret_val;
 
 }
-
-/**
- * Writes raw data to device without locking it first
- */
-int iqrf_data_write_unlocked(iqrf_t *iqrf, const unsigned char *buff, int tx_len)
-{
-	int rv;
-
-    	usb_set_tx_len(iqrf->dev, tx_len);
-    	usb_write_tx_buff(iqrf->dev, buff, tx_len);
-    	rv = usb_send_packet(iqrf->dev);
-
-	return rv;
-}
+#endif
 
 
-/**
- * Writes raw data to connected device and gets anwser.
- * @param iqrf		device
- * @param data_buff	RAW data to send	
- * @param tx_len	lenght of outgoing data
- * @param rx_len	lenght of incoming data
- * @param check_crc	check crc?
- */
+/* Programmer does some magic there */
+
 int iqrf_write_read_data(iqrf_t *iqrf, unsigned char *data_buff, int tx_len, int rx_len, bool check_crc)
 {
-	unsigned char PTYPE;
-    	int len, crc_rx;
+//	unsigned char PTYPE;
+    	int len;
+
+	/* we don't use it */
+	(void)check_crc;
 
 	/* get semaphore */
 	if (sem_wait(&iqrf->sem))
 		ERR_LOCK();
 
-	/* get ptype (will be needed during CRC check) */
-    	PTYPE = data_buff[2];
+//	/* get ptype (will be needed during CRC check) */
+  //  	PTYPE = data_buff[2];
 
 	usb_set_tx_len(iqrf->dev, tx_len);
     	usb_set_rx_len(iqrf->dev, rx_len);
 
     	usb_write_tx_buff(iqrf->dev, data_buff, tx_len);
-    	usb_send_receive_packet(iqrf->dev);
+	/* TODO: one write, one read */
+	usb_send_receive_packet(iqrf->dev);
     	len = usb_read_rx_buff(iqrf->dev, data_buff);
 
-	if (len && check_crc) {
-        	crc_rx = check_crc_rx(&data_buff[2], PTYPE, len-3);
-//        	memcpy(data_buff, buff, len);
-    	}
-    	sem_post(&iqrf->sem);
+	sem_post(&iqrf->sem);
     	return len;
 }
 
 
 
-
-/*
- * Sends raw data to usb programmer
- */
+#if 0
 int iqrf_write_data(iqrf_t *iqrf, const unsigned char *data_buff, int tx_len)
 {
-	int rv;
-	/* get semaphore */
-	if (sem_wait(&iqrf->sem))
-		ERR_LOCK();
-	rv = iqrf_data_write_unlocked(iqrf, data_buff, tx_len);
-    	sem_post(&iqrf->sem);
-    	return rv;
+	iqrf_raw_write(iqrf, data_buff, tx_len);
 }
+#endif
 
 void iqrf_reset_device(iqrf_t *iqrf)
 {
- 	/* get semaphore */
-	if (sem_wait(&iqrf->sem))
-		ERR_LOCK();
-
+	iqrf_lock(iqrf);
 	usb_reset(iqrf->dev);
-	sem_post(&iqrf->sem);
+	iqrf_unlock(iqrf);
 }
 
 int iqrf_count_tx_crc(unsigned char *buff, int len)

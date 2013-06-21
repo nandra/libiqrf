@@ -1,6 +1,7 @@
 /*
  * Public libiqrf header file
  * Copyright (C) 2010 Marek Belisko <marek.belisko@gmail.com>
+ * 		 2013 Jan Tusil <jenda.tusil@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -75,6 +76,24 @@ int iqrf_init(void);
  */
 void iqrf_exit(void);
 
+/**
+ * Locks iqrf device
+ * @param iqrf	device to lock
+ *
+ * Notes about locking:
+ * During normal operations (like iqrf_raw_write()) this library locks
+ * device for you. Use locking only together with *_unlocked functions.
+ */
+void iqrf_lock(iqrf_t *iqrf);
+
+/**
+ * Unlocks locked device
+ * @param iqrf	device to unlock
+ * See notes above
+ */
+void iqrf_unlock(iqrf_t *iqrf);
+
+
 
 /**
  * Gets list of connected devices. Each entry describes where the device is connected.
@@ -85,6 +104,10 @@ void iqrf_exit(void);
 int iqrf_get_device_list(usb_addr list[], int num);
 
 
+/**
+ * Gets number of connected devices
+ * @return	device count
+ */
 int iqrf_get_device_count(void);
 
 
@@ -92,6 +115,7 @@ int iqrf_get_device_count(void);
  * Opens an IQRF device
  * @param addr	device to open
  * @return	opened device or NULL
+ * It is not possible to open one device more than once.
  */
 
 iqrf_t *iqrf_device_open(usb_addr *addr);
@@ -105,10 +129,10 @@ void iqrf_device_close(iqrf_t *iqrf);
 
 /**
  * Easier way how to open a device
- * @param interactive   list devices and let user select one
+ * @param interactive   list devices (stdout) and let user (stdin) select one
  * @param list          if interactive == false, list devices only
  * @param which         if (interactive || list) == false, device to connect
- * @return      if list == true || error => NULL, IQRF device otherwise
+ * @return      if (list == true || error) => NULL, IQRF device otherwise
  */
 
 iqrf_t *iqrf_select_device(bool interactive, bool list, int which);
@@ -128,19 +152,79 @@ iqrf_t *iqrf_select_device(bool interactive, bool list, int which);
 
 int iqrf_read_write_spi_cmd_data(iqrf_t *iqrf, unsigned char *data_buff, int data_len, int read_write);
 
-/* reset device (also usb reset)*/
+/**
+ * Resets device
+ * @param iqrf	device
+ * You probably won't need this
+ */
 void iqrf_reset_device(iqrf_t *iqrf);
 
+/**
+ * Are there any data?
+ * @param iqrf	device
+ * @return	number of bytes ready (or 0)
+ */
 int iqrf_spi_data_ready(iqrf_t *iqrf);
 
 
+/**
+ * Writes raw data to usb programmer
+ * @param iqrf	device
+ * @param buff	data to write
+ * @param len	how many bytes to write
+ * @return	number of bytes written 
+ *
+ * Depending on the first byte, data will be processed
+ * by IQRF module or programmer. In most cases, last byte 
+ * serves as CRC checksum.
+ */
+int iqrf_raw_write(iqrf_t *iqrf, const unsigned char *buff, int len);
+int iqrf_raw_write_unlocked(iqrf_t *iqrf, const unsigned char *buff, int len);
+
+
+
+
+/**
+ * Reads max rx_len bytes from usb programmer
+ * @param iqrf	device
+ * @param buff	buffer to write data to
+ * @param rx_len maximal number of bytes to read
+ * @return	-1 on error, number of bytes (nb) read otherwise
+ * Notes:
+ * 	On error, buff stays unchanged.
+ * 	On success, all buffer is overwritten.
+ *	If rx_len > nb, it means last few bytes are dummy.
+ */
+int iqrf_raw_read(iqrf_t *iqrf, unsigned char *buff, int rx_len);
+int iqrf_raw_read_unlocked(iqrf_t *iqrf, unsigned char *buff, int rx_len);
+
+
+/**
+ * Writes raw data to connected device and gets anwser.
+ * @param iqrf		device
+ * @param data_buff	RAW data to send	
+ * @param tx_len	lenght of outgoing data
+ * @param rx_len	lenght of incoming data
+ * @param check_crc	check crc?
+ */
+
+int iqrf_write_read_data(iqrf_t *iqrf, unsigned char *data_buff, int tx_len, int rx_len, int check_crc);
+
+
+
+
+
+
+/******************* Compat only symbols *******************/
+
+#if 0
+int iqrf_write_data(iqrf_t *iqrf, unsigned char *data_buff, int tx_len);
+#endif
 /* 
  * following functions are highly used only for iqrf ide
  * and makes no sense to use them in applications
  * thats the reason why aren't documented well ;)
  */
-int iqrf_write_read_data(iqrf_t *iqrf, unsigned char *data_buff, int tx_len, int rx_len, int check_crc);
-int iqrf_write_data(iqrf_t *iqrf, unsigned char *data_buff, int tx_len);
 int iqrf_count_tx_crc(unsigned char *buff, int len);
 
 #ifdef __cplusplus

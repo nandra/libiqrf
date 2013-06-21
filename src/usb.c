@@ -74,12 +74,12 @@ static void usb_device_get_addr(struct libusb_device *dev, usb_addr *addr)
 	addr->bus = libusb_get_bus_number(dev);
 	addr->port = libusb_get_port_number(dev);
 }
-
 /**
  * TODO:
  */
 bool try_open(struct libusb_device *dev)
 {
+	(void)dev;
 	return true;
 }
 
@@ -123,8 +123,10 @@ device_t *usb_device_open(struct libusb_device *usbdev)
 
 	memset(dev, 0, sizeof(*dev));
 	rv = libusb_open(usbdev, &(dev->handle));
-	if (rv)
+	if (rv) {
+		perror("libusb_open");
 		goto err_open;
+	}
 
 	rv = libusb_claim_interface(dev->handle, 0);
 	if (rv)
@@ -141,7 +143,7 @@ err_malloc:
 	return NULL;
 }
 
-void *usb_device_close(device_t *dev)
+void usb_device_close(device_t *dev)
 {
 	libusb_release_interface(dev->handle, 0);
 	libusb_close(dev->handle);
@@ -186,8 +188,11 @@ end:
 
 static void debug_print_packet(const unsigned char *data, int len, int direction)
 {
-	int i;
+	(void)data;
+	(void)len;
+	(void)direction;
 #if 0
+	int i;
 	DBG("Dumping %s data:\n", direction?"outgoing":"incoming");
 	for (i=0; i < len; i++)
         	DBG("%s[%d]=0x%X ", direction?"out":"in", i, data[i]);
@@ -205,13 +210,14 @@ int usb_retrieve_packet(device_t *dev)
     	ret_val = libusb_interrupt_transfer(dev->handle, IN_EP_NR,
                                      dev->rx_buff, dev->rx_len, &transferred,
                                      USB_TIMEOUT);
-	if (!ret_val)
-		ret_val = transferred;
-	else
-		perror("usb_irq_read");
+
+	if (ret_val) {
+		/* TODO: print libusb error */
+		return -1;
+	}
 
 	debug_print_packet(dev->rx_buff, dev->rx_len, 0);
-    	return ret_val;
+	return transferred;	
 }
 
 /* write data to endpoint */
@@ -223,12 +229,15 @@ int usb_send_packet(device_t *dev)
 					dev->tx_buff, dev->tx_len, &transferred,
 					USB_TIMEOUT);
 
-	if (ret_val < 0) {
+	if (ret_val) {
+		/* TODO: print libusb error */
        		 perror("usb_irq_write");
+		 return -1;
 	}
 
 	debug_print_packet(dev->tx_buff, dev->tx_len, 1);
-	return ret_val;
+	return transferred;
+//	return ret_val;
 }
 
 /* write and read data to/from endpoint */
@@ -237,8 +246,11 @@ int usb_send_receive_packet(device_t *dev)
 	int ret_val = 0;
 
 	ret_val = usb_send_packet(dev);
-	if (!ret_val)
-		ret_val = usb_retrieve_packet(dev);
+	if (ret_val < 0)
+		return -1;
+
+//	if (!ret_val)
+	ret_val = usb_retrieve_packet(dev);
 	return ret_val;
 }
 
