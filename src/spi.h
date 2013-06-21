@@ -24,7 +24,10 @@
 #define SPI_DATA_LENGTH        (35)
 #define SPI_CRC_DEFAULT        (0x5F)
 
-#define SPI_CMD 0xF0
+#define SPI_CMD		0xF0
+#define SPI_CMD_RW	0xF0
+#define SPI_CHECK	0x00
+#define SPI_CMD_CHECK	0x00
 
 /* possible spi statuses */
 enum spi_status {
