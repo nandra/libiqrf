@@ -242,12 +242,11 @@ int iqrf_spi_data_ready(iqrf_t *iqrf)
 	return rv - 0x40;
 }
 
-#define PERFORM_F_WRITE	0x01
-#define PERFORM_F_READ	0x02
-#define PERFORM_F_CRC	0x04
-#define PERFORM_F_LOCK	0x08
 
-
+#define IQRF_F_WRITE	0x01
+#define IQRF_F_READ	0x02
+#define IQRF_F_CRC	0x04
+#define IQRF_F_LOCK	0x08
 /**
  * Performs I/O operation on IQRF module
  * @param iqrf	module
@@ -271,20 +270,20 @@ int iqrf_module_perform(iqrf_t *iqrf, unsigned char *din, const unsigned char *d
 
 	if (len > SPI_MAX_LEN || len < 0)
 		return -1;
-	if ((flags & (PERFORM_F_READ | PERFORM_F_WRITE)) == 0)
+	if ((flags & (IQRF_F_READ | IQRF_F_WRITE)) == 0)
 		return -1;
 
 
 	/* write? */
 	ptype = len;
-	if (flags & PERFORM_F_WRITE)
+	if (flags & IQRF_F_WRITE)
 		ptype |= 0x80;
 
 	memset(buff, 0, sizeof(buff));
 	buff[0] = CMD_FOR_CK;	// for programmer
 	buff[1] = SPI_CMD_RW;	// for device - data read/write
 	buff[2] = ptype;
-	if ((flags & PERFORM_F_WRITE) && dout != NULL) {
+	if ((flags & IQRF_F_WRITE) && dout != NULL) {
 		memcpy(buff+3, dout, len);
 	}
 	 crc_out = count_crc_tx(buff+1, len+3);
@@ -292,7 +291,7 @@ int iqrf_module_perform(iqrf_t *iqrf, unsigned char *din, const unsigned char *d
 	
 
 	/* lock */
-	if (flags & PERFORM_F_LOCK)
+	if (flags & IQRF_F_LOCK)
 		iqrf_lock(iqrf);
 
 	rv = iqrf_raw_write_unlocked(iqrf, buff, len + 4);
@@ -316,24 +315,24 @@ int iqrf_module_perform(iqrf_t *iqrf, unsigned char *din, const unsigned char *d
 //	status = buff[0];
 
 	/* check CRC */
-	if (flags & PERFORM_F_CRC) {
+	if (flags & IQRF_F_CRC) {
 		if (check_crc_rx(buff + 2, ptype, bytes) == 0)
 			goto error;
 
 	}
 
-	if (flags & PERFORM_F_LOCK)
+	if (flags & IQRF_F_LOCK)
 		iqrf_unlock(iqrf);
 
 	/* read it ? */
-	if ((flags & PERFORM_F_READ) && din != NULL) {
+	if ((flags & IQRF_F_READ) && din != NULL) {
 		memcpy(din, buff + 2, bytes);
 	}
 
 	return bytes;
 
 error:
-	if (flags & PERFORM_F_LOCK)
+	if (flags & IQRF_F_LOCK)
 		iqrf_unlock(iqrf);
 	return -1;
 }
@@ -342,28 +341,28 @@ error:
 int iqrf_module_write_unlocked(iqrf_t *iqrf, const unsigned char *data, int len)
 {
 	int f;
-	f = PERFORM_F_WRITE;
+	f = IQRF_F_WRITE;
 	return iqrf_module_perform(iqrf, NULL, data, len, f);
 }
 
 int iqrf_module_write(iqrf_t *iqrf, const unsigned char *data, int len)
 {
 	int f;
-	f = PERFORM_F_WRITE | PERFORM_F_LOCK;
+	f = IQRF_F_WRITE | IQRF_F_LOCK;
 	return iqrf_module_perform(iqrf, NULL, data, len, f);
 }
 
 int iqrf_module_read_unlocked(iqrf_t *iqrf, unsigned char *data, int len)
 {
 	int f;
-	f = PERFORM_F_READ;
+	f = IQRF_F_READ;
 	return iqrf_module_perform(iqrf, data, NULL, len, f);
 }
 
 int iqrf_module_read(iqrf_t *iqrf, unsigned char *data, int len)
 {
 	int f;
-	f = PERFORM_F_READ | PERFORM_F_LOCK;
+	f = IQRF_F_READ | IQRF_F_LOCK;
 	return iqrf_module_perform(iqrf, data, NULL, len, f);
 }
 

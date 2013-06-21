@@ -138,20 +138,6 @@ void iqrf_device_close(iqrf_t *iqrf);
 iqrf_t *iqrf_select_device(bool interactive, bool list, int which);
 
 
-/* 
- * this function have 2 functionalities
- * for data reading you provide a buffer 
- * data_buff where data will be written
- * after reading
- *
- * for writing you put your data in data_buff
- * and then response will be also placed
- * in data_buff (strange but TRUE :))
- *
- */
-
-int iqrf_read_write_spi_cmd_data(iqrf_t *iqrf, unsigned char *data_buff, int data_len, int read_write);
-
 /**
  * Resets device
  * @param iqrf	device
@@ -211,15 +197,55 @@ int iqrf_raw_read_unlocked(iqrf_t *iqrf, unsigned char *buff, int rx_len);
 int iqrf_write_read_data(iqrf_t *iqrf, unsigned char *data_buff, int tx_len, int rx_len, int check_crc);
 
 
+/**
+ * Writes data to IQRF module.
+ * @param iqrf	device
+ * @param data	Data to send. The TR module will get these data on its SPI.
+ * @param len	Number of bytes to write
+ *
+ * @return	Number of bytes written or -1 on error.
+ */
+int iqrf_module_write_unlocked(iqrf_t *iqrf, const unsigned char *data, int len);
+int iqrf_module_write(iqrf_t *iqrf, const unsigned char *data, int len);
+
+/**
+ * Reads data from IQRF module.
+ * @param iqrf	device to read data from
+ * @param data	Buffer to store data from TR module.
+ * @param len	Number of bytes to read.
+ *
+ * @return	Number of bytes read or -1 on error.
+ *
+ */
+
+int iqrf_module_read_unlocked(iqrf_t *iqrf, unsigned char *data, int len);
+int iqrf_module_read(iqrf_t *iqrf, unsigned char *data, int len);
 
 
 
 
 /******************* Compat only symbols *******************/
 
+
+#if 0
+/* 
+ * this function have 2 functionalities
+ * for data reading you provide a buffer 
+ * data_buff where data will be written
+ * after reading
+ *
+ * for writing you put your data in data_buff
+ * and then response will be also placed
+ * in data_buff (strange but TRUE :))
+ *
+ */
+
+int iqrf_read_write_spi_cmd_data(iqrf_t *iqrf, unsigned char *data_buff, int data_len, int read_write);
+#endif
 #if 0
 int iqrf_write_data(iqrf_t *iqrf, unsigned char *data_buff, int tx_len);
 #endif
+
 /* 
  * following functions are highly used only for iqrf ide
  * and makes no sense to use them in applications

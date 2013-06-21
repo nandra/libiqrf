@@ -31,15 +31,4 @@ typedef struct {
 
 } iqrf_t;
 
-/* TODO */
-#if 0
-/* IQRF packet structure */
-typedef struct {
-	unsigned char rx_buff[64];
-	unsigned char tx_buff[64];
-
-
-} iqpac_t
-#endif
-
 #endif // IQRF_DEV_H
