@@ -10,9 +10,10 @@ For more information on the protocol, see the source code
 or www.iqrf.org (SPI).
 
 Library compilation:
-1. ./configure
-2. make
-3. sudo make install
+1. mkdir .build
+2. cd .build
+3. cmake ..
+4. make
 
 Default location is in /usr/local/lib.
 
