@@ -2,7 +2,7 @@ project(iqrf)
 
 set (iqrf_version_major 0)
 set (iqrf_version_minor 1)
-set (iqrf_version_patch 1)
+set (iqrf_version_patch 2)
 set (iqrf_soversion 0)
 set (iqrf_postfix "")
 
