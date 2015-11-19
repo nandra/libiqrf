@@ -18,6 +18,7 @@ set (iqrf_sources
 	usb.c
 )
 
+include("GNUInstallDirs")
 include_directories ("${LIBUSB_1_INCLUDE_DIRS}")
 
 add_library(iqrf SHARED ${iqrf_sources} ${iqrf_headers})
@@ -28,5 +29,5 @@ set_target_properties(iqrf PROPERTIES
 	SOVERSION "${iqrf_soversion}"
 )
 
-install(TARGETS iqrf DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(TARGETS iqrf DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(FILES iqrf.h DESTINATION include)
